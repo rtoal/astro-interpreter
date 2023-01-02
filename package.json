@@ -6,12 +6,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "Ohm",
+    "interpreter"
+  ],
+  "author": "rtoal",
   "license": "ISC",
   "dependencies": {
     "ohm-js": "^16.3.4"
   },
   "devDependencies": {},
-  "description": ""
+  "description": "Astro interpreter using Ohm"
 }

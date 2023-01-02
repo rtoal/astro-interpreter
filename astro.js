@@ -2,29 +2,24 @@ import ohm from "ohm-js"
 
 const astroGrammar = ohm.grammar(String.raw`Astro {
   Program     = Statement+
-  Statement   = id "=" Exp ";"                     --assignment
-              | id Args ";"                        --call
+  Statement   = id "=" Exp ";"                        --assignment
+              | id Args ";"                           --call
   Args        = "(" ListOf<Exp, ","> ")"
-  Exp         = Exp ("+" | "-") Term               --binary
+  Exp         = Exp ("+" | "-") Term                  --binary
               | Term
-  Term        = Term (~"**" "*" | "/") Factor      --binary
+  Term        = Term (~"**" "*" | "/" | "%") Factor   --binary
               | Factor
-  Factor      = Primary "**" Factor                --binary
+  Factor      = Primary "**" Factor                   --binary
               | Primary
-  Primary     = id Args                            --call
-              | numeral                            --num
-              | id                                 --id
-              | "(" Exp ")"                        --parens
+  Primary     = id Args                               --call
+              | numeral                               --num
+              | id                                    --id
+              | "(" Exp ")"                           --parens
 
   numeral     = digit+ ("." digit+)? (("E" | "e") ("+" | "-")? digit+)?
   id          = letter (letter | digit | "_")*
-  space      += "//" (~"\n" any)*                  --comment
+  space      += "//" (~"\n" any)*                     --comment
 }`)
-
-const source = `dozen = 5 + 8 - 1;
-  print(dozen ** 3 / sqrt(100));
-  print(sqrt(5.9 + hypot(π, 3.5e-8)));
-`
 
 const memory = {
   π: { type: "NUM", value: Math.PI, access: "RO" },
@@ -41,7 +36,7 @@ function check(condition, message, node) {
 
 const semantics = astroGrammar.createSemantics().addOperation("eval", {
   Program(statements) {
-    statements.eval()
+    statements.children.map(statement => statement.eval())
   },
   Statement_assignment(id, _eq, e, _semicolon) {
     const entity = memory[id.sourceString]
@@ -57,15 +52,15 @@ const semantics = astroGrammar.createSemantics().addOperation("eval", {
     entity.value(...argList)
   },
   Args(_leftParen, expressions, _rightParen) {
-    return expressions.asIteration().eval()
+    return expressions.asIteration().children.map(e => e.eval())
   },
   Exp_binary(left, op, right) {
     const [x, y] = [left.eval(), right.eval()]
     return op.sourceString == "+" ? x + y : x - y
   },
   Term_binary(left, op, right) {
-    const [x, y] = [left.eval(), right.eval()]
-    return op.sourceString == "*" ? x * y : x / y
+    const [x, o, y] = [left.eval(), op.sourceString, right.eval()]
+    return o == "*" ? x * y : o == "/" ? x / y : x % y
   },
   Factor_binary(left, _op, right) {
     return left.eval() ** right.eval()
@@ -77,7 +72,6 @@ const semantics = astroGrammar.createSemantics().addOperation("eval", {
     return Number(num.sourceString)
   },
   Primary_id(id) {
-    // In Astro, functions and procedures never stand alone
     const entity = memory[id.sourceString]
     check(entity !== undefined, `${id.sourceString} not defined`, id)
     check(entity?.type === "NUM", `Expected type number`, id)
@@ -90,13 +84,10 @@ const semantics = astroGrammar.createSemantics().addOperation("eval", {
     check(argList.length === entity?.paramCount, "Wrong number of arguments", args)
     return entity.value(...argList)
   },
-  _iter(...nodes) {
-    return nodes.map(node => node.eval())
-  },
 })
 
 try {
-  const match = astroGrammar.match(source)
+  const match = astroGrammar.match(process.argv[2])
   if (match.failed()) throw new Error(match.message)
   semantics(match).eval()
 } catch (e) {
