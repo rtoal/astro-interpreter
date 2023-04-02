@@ -1,4 +1,4 @@
-import ohm from "ohm-js"
+import * as ohm from "ohm-js"
 
 const astroGrammar = ohm.grammar(String.raw`Astro {
   Program     = Statement+
@@ -30,13 +30,13 @@ const memory = {
   print: { type: "PROC", value: args => console.log(args), paramCount: 1 },
 }
 
-function check(condition, message, node) {
-  if (!condition) throw new Error(`${node.source.getLineAndColumnMessage()}${message}`)
+function check(condition, message, at) {
+  if (!condition) throw new Error(`${at.source.getLineAndColumnMessage()}${message}`)
 }
 
-const semantics = astroGrammar.createSemantics().addOperation("eval", {
+const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   Program(statements) {
-    statements.children.map(statement => statement.eval())
+    for (let statement of statements.children) statement.eval()
   },
   Statement_assignment(id, _eq, e, _semicolon) {
     const entity = memory[id.sourceString]
@@ -51,7 +51,7 @@ const semantics = astroGrammar.createSemantics().addOperation("eval", {
     check(argList.length === entity?.paramCount, "Wrong number of arguments", args)
     entity.value(...argList)
   },
-  Args(_leftParen, expressions, _rightParen) {
+  Args(_open, expressions, _close) {
     return expressions.asIteration().children.map(e => e.eval())
   },
   Exp_binary(left, op, right) {
@@ -89,7 +89,7 @@ const semantics = astroGrammar.createSemantics().addOperation("eval", {
 try {
   const match = astroGrammar.match(process.argv[2])
   if (match.failed()) throw new Error(match.message)
-  semantics(match).eval()
+  evaluator(match).eval()
 } catch (e) {
   console.error(`${e}`)
 }

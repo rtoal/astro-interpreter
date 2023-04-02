@@ -1,7 +1,7 @@
 {
   "name": "astro-interpreter",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "astro.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,9 +12,8 @@
   ],
   "author": "rtoal",
   "license": "ISC",
+  "description": "Astro interpreter using Ohm",
   "dependencies": {
-    "ohm-js": "^16.3.4"
-  },
-  "devDependencies": {},
-  "description": "Astro interpreter using Ohm"
+    "ohm-js": "^17.0.4"
+  }
 }
