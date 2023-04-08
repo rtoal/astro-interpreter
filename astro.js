@@ -4,7 +4,6 @@ const astroGrammar = ohm.grammar(String.raw`Astro {
   Program     = Statement+
   Statement   = id "=" Exp ";"                         --assignment
               | print Exp ";"                          --print
-  Args        = ListOf<Exp, ",">
   Exp         = Exp ("+" | "-") Term                   --binary
               | Term
   Term        = Term ("*" | "/" | "%") Factor          --binary
@@ -12,7 +11,7 @@ const astroGrammar = ohm.grammar(String.raw`Astro {
   Factor      = Primary "**" Factor                    --binary
               | "-" Primary                            --negation
               | Primary
-  Primary     = id "(" Args ")"                        --call
+  Primary     = id "(" ListOf<Exp, ","> ")"            --call
               | numeral                                --num
               | id                                     --id
               | "(" Exp ")"                            --parens
@@ -49,9 +48,6 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   Statement_print(_print, expression, _semicolon) {
     console.log(expression.eval())
   },
-  Args(expList) {
-    return expList.asIteration().children.map(e => e.eval())
-  },
   Exp_binary(left, op, right) {
     const [x, y] = [left.eval(), right.eval()]
     return op.sourceString == "+" ? x + y : x - y
@@ -75,12 +71,13 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
     check(entity?.type === "NUM", `Expected type number`, id)
     return entity.value
   },
-  Primary_call(id, _open, args, _close) {
-    const [entity, argList] = [memory[id.sourceString], args.eval()]
+  Primary_call(id, _open, exps, _close) {
+    const entity = memory[id.sourceString]
     check(entity !== undefined, `${id.sourceString} not defined`, id)
     check(entity?.type === "FUNC", "Function expected", id)
-    check(argList.length === entity?.paramCount, "Wrong number of arguments", args)
-    return entity.value(...argList)
+    const args = exps.asIteration().children.map(e => e.eval())
+    check(args.length === entity?.paramCount, "Wrong number of arguments", exps)
+    return entity.value(...args)
   },
 })
 
