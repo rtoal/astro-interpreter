@@ -2,23 +2,26 @@ import * as ohm from "ohm-js"
 
 const astroGrammar = ohm.grammar(String.raw`Astro {
   Program     = Statement+
-  Statement   = id "=" Exp ";"                        --assignment
-              | id Args ";"                           --call
-  Args        = "(" ListOf<Exp, ","> ")"
-  Exp         = Exp ("+" | "-") Term                  --binary
+  Statement   = id "=" Exp ";"                         --assignment
+              | print Exp ";"                          --print
+  Args        = ListOf<Exp, ",">
+  Exp         = Exp ("+" | "-") Term                   --binary
               | Term
-  Term        = Term (~"**" "*" | "/" | "%") Factor   --binary
+  Term        = Term ("*" | "/" | "%") Factor          --binary
               | Factor
-  Factor      = Primary "**" Factor                   --binary
+  Factor      = Primary "**" Factor                    --binary
+              | "-" Primary                            --negation
               | Primary
-  Primary     = id Args                               --call
-              | numeral                               --num
-              | id                                    --id
-              | "(" Exp ")"                           --parens
+  Primary     = id "(" Args ")"                        --call
+              | numeral                                --num
+              | id                                     --id
+              | "(" Exp ")"                            --parens
 
   numeral     = digit+ ("." digit+)? (("E" | "e") ("+" | "-")? digit+)?
-  id          = letter (letter | digit | "_")*
-  space      += "//" (~"\n" any)*                     --comment
+  print       = "print" ~idchar
+  idchar      = letter | digit | "_"
+  id          = ~print letter idchar*
+  space      += "//" (~"\n" any)*                      --comment
 }`)
 
 const memory = {
@@ -27,7 +30,6 @@ const memory = {
   cos: { type: "FUNC", value: Math.cos, paramCount: 1 },
   sqrt: { type: "FUNC", value: Math.sqrt, paramCount: 1 },
   hypot: { type: "FUNC", value: Math.hypot, paramCount: 2 },
-  print: { type: "PROC", value: args => console.log(args), paramCount: 1 },
 }
 
 function check(condition, message, at) {
@@ -36,23 +38,19 @@ function check(condition, message, at) {
 
 const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   Program(statements) {
-    for (let statement of statements.children) statement.eval()
+    for (const statement of statements.children) statement.eval()
   },
-  Statement_assignment(id, _eq, e, _semicolon) {
+  Statement_assignment(id, _eq, expression, _semicolon) {
     const entity = memory[id.sourceString]
     check(!entity || entity?.type === "NUM", "Cannot assign", id)
     check(!entity || entity?.access === "RW", `${id.sourceString} not writable`, id)
-    memory[id.sourceString] = { type: "NUM", value: e.eval(), access: "RW" }
+    memory[id.sourceString] = { type: "NUM", value: expression.eval(), access: "RW" }
   },
-  Statement_call(id, args, _semicolon) {
-    const [entity, argList] = [memory[id.sourceString], args.eval()]
-    check(entity !== undefined, `${id.sourceString} not defined`, id)
-    check(entity?.type === "PROC", "Procedure expected", id)
-    check(argList.length === entity?.paramCount, "Wrong number of arguments", args)
-    entity.value(...argList)
+  Statement_print(_print, expression, _semicolon) {
+    console.log(expression.eval())
   },
-  Args(_open, expressions, _close) {
-    return expressions.asIteration().children.map(e => e.eval())
+  Args(expList) {
+    return expList.asIteration().children.map(e => e.eval())
   },
   Exp_binary(left, op, right) {
     const [x, y] = [left.eval(), right.eval()]
@@ -77,7 +75,7 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
     check(entity?.type === "NUM", `Expected type number`, id)
     return entity.value
   },
-  Primary_call(id, args) {
+  Primary_call(id, _open, args, _close) {
     const [entity, argList] = [memory[id.sourceString], args.eval()]
     check(entity !== undefined, `${id.sourceString} not defined`, id)
     check(entity?.type === "FUNC", "Function expected", id)
