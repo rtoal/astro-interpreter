@@ -1,27 +1,7 @@
 import * as ohm from "ohm-js"
+import fs from "fs"
 
-const astroGrammar = ohm.grammar(String.raw`Astro {
-  Program     = Statement+
-  Statement   = id "=" Exp ";"                         --assignment
-              | print Exp ";"                          --print
-  Exp         = Exp ("+" | "-") Term                   --binary
-              | Term
-  Term        = Term ("*" | "/" | "%") Factor          --binary
-              | Factor
-  Factor      = Primary "**" Factor                    --binary
-              | "-" Primary                            --negation
-              | Primary
-  Primary     = id "(" ListOf<Exp, ","> ")"            --call
-              | numeral                                --num
-              | id                                     --id
-              | "(" Exp ")"                            --parens
-
-  numeral     = digit+ ("." digit+)? (("E" | "e") ("+" | "-")? digit+)?
-  print       = "print" ~idchar
-  idchar      = letter | digit | "_"
-  id          = ~print letter idchar*
-  space      += "//" (~"\n" any)*                      --comment
-}`)
+const astroGrammar = ohm.grammar(fs.readFileSync("astro.ohm"))
 
 const memory = {
   π: { type: "NUM", value: Math.PI, access: "RO" },
