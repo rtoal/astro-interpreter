@@ -4,7 +4,7 @@ import fs from "fs"
 const astroGrammar = ohm.grammar(fs.readFileSync("astro.ohm"))
 
 const memory = {
-  π: { type: "NUM", value: Math.PI, access: "RO" },
+  π: { type: "NUM", value: Math.PI, mutable: false },
   sin: { type: "FUNC", value: Math.sin, paramCount: 1 },
   cos: { type: "FUNC", value: Math.cos, paramCount: 1 },
   sqrt: { type: "FUNC", value: Math.sqrt, paramCount: 1 },
@@ -22,8 +22,8 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   Statement_assignment(id, _eq, expression, _semicolon) {
     const entity = memory[id.sourceString]
     check(!entity || entity?.type === "NUM", "Cannot assign", id)
-    check(!entity || entity?.access === "RW", `${id.sourceString} not writable`, id)
-    memory[id.sourceString] = { type: "NUM", value: expression.eval(), access: "RW" }
+    check(!entity || entity?.mutable, `${id.sourceString} not writable`, id)
+    memory[id.sourceString] = { type: "NUM", value: expression.eval(), mutable: true }
   },
   Statement_print(_print, expression, _semicolon) {
     console.log(expression.eval())
