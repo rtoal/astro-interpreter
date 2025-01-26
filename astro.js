@@ -1,17 +1,17 @@
 import * as ohm from "ohm-js"
-import fs from "fs"
+import * as fs from "fs"
 
 const astroGrammar = ohm.grammar(fs.readFileSync("astro.ohm"))
 
 const memory = {
   π: { type: "NUM", value: Math.PI, mutable: false },
-  sin: { type: "FUNC", value: Math.sin, paramCount: 1 },
-  cos: { type: "FUNC", value: Math.cos, paramCount: 1 },
-  sqrt: { type: "FUNC", value: Math.sqrt, paramCount: 1 },
-  hypot: { type: "FUNC", value: Math.hypot, paramCount: 2 },
+  sin: { type: "FUNC", fun: Math.sin, paramCount: 1 },
+  cos: { type: "FUNC", fun: Math.cos, paramCount: 1 },
+  sqrt: { type: "FUNC", fun: Math.sqrt, paramCount: 1 },
+  hypot: { type: "FUNC", fun: Math.hypot, paramCount: 2 },
 }
 
-function check(condition, message, at) {
+function must(condition, message, at) {
   if (!condition) throw new Error(`${at.source.getLineAndColumnMessage()}${message}`)
 }
 
@@ -21,8 +21,8 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   },
   Statement_assignment(id, _eq, expression, _semicolon) {
     const entity = memory[id.sourceString]
-    check(!entity || entity?.type === "NUM", "Cannot assign", id)
-    check(!entity || entity?.mutable, `${id.sourceString} not writable`, id)
+    must(!entity || entity?.type === "NUM", "Cannot assign", id)
+    must(!entity || entity?.mutable, `${id.sourceString} not writable`, id)
     memory[id.sourceString] = { type: "NUM", value: expression.eval(), mutable: true }
   },
   Statement_print(_print, expression, _semicolon) {
@@ -47,17 +47,17 @@ const evaluator = astroGrammar.createSemantics().addOperation("eval", {
   },
   Primary_id(id) {
     const entity = memory[id.sourceString]
-    check(entity !== undefined, `${id.sourceString} not defined`, id)
-    check(entity?.type === "NUM", `Expected type number`, id)
+    must(entity !== undefined, `${id.sourceString} not defined`, id)
+    must(entity?.type === "NUM", `Expected type number`, id)
     return entity.value
   },
   Primary_call(id, _open, exps, _close) {
     const entity = memory[id.sourceString]
-    check(entity !== undefined, `${id.sourceString} not defined`, id)
-    check(entity?.type === "FUNC", "Function expected", id)
+    must(entity !== undefined, `${id.sourceString} not defined`, id)
+    must(entity?.type === "FUNC", "Function expected", id)
     const args = exps.asIteration().children.map(e => e.eval())
-    check(args.length === entity?.paramCount, "Wrong number of arguments", exps)
-    return entity.value(...args)
+    must(args.length === entity?.paramCount, "Wrong number of arguments", exps)
+    return entity.fun(...args)
   },
 })
 
